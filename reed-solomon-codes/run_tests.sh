@@ -9,6 +9,8 @@ OUTPUT_FILE="results.txt"
 ORIGINAL_TEXT="foo bar"
 ECC_SYMBOLS=6
 
+cargo build --release
+
 echo "Running Reed-Solomon Code Experiments..." > $OUTPUT_FILE
 echo "===================================" >> $OUTPUT_FILE
 

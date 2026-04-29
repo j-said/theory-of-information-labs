@@ -22,8 +22,8 @@ cargo run -- tests-images/linear-gradient.png
 Run the provided shell script to batch process all images in the test directory and generate a summary report:
 
 ```bash
-chmod +x run_lab_tests.sh
-./run_lab_tests.sh
+chmod +x run_tests.sh
+./run_tests.sh
 ```
 
 ---

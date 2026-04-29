@@ -1,4 +1,4 @@
-# Optimal Coding (Lab 3)
+# Optimal Coding (TI Lab 3)
 
 ## Overview
 

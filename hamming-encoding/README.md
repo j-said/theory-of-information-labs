@@ -1,4 +1,4 @@
-# Hamming Encoding
+# Hamming Encoding (TI Lab 4)
 
 Console utility in Rust for demonstrating Hamming code encoding, decoding, and single-bit error correction.
 

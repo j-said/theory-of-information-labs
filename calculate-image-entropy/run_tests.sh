@@ -1,7 +1,12 @@
 #!/bin/bash
 
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 RESULTS_FILE="results.txt"
-echo "--- Compression Tests Results $(date) ---" > $RESULTS_FILE
+echo "--- Compression Tests Results $(date) ---" > "$RESULTS_FILE"
 
 TEST_DIR="tests"
 
@@ -13,13 +18,13 @@ fi
 for img in "$TEST_DIR"/*.{png,jpg,jpeg}; do
     [ -e "$img" ] || continue
 
-    echo -e "\nFILE: $img" >> $RESULTS_FILE
+    echo -e "\nFILE: $img" >> "$RESULTS_FILE"
     
     for bits in 1 2 4 8 16 32 64 128; do
-        cargo run -q -- "$img" "$bits" >> $RESULTS_FILE
+        cargo run -q -- "$img" "$bits" >> "$RESULTS_FILE"
     done
     
-    echo "--------------------------------------" >> $RESULTS_FILE
+    echo "--------------------------------------" >> "$RESULTS_FILE"
 done
 
 echo "Done. Check $RESULTS_FILE"

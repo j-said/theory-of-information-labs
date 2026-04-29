@@ -1,5 +1,10 @@
 #!/bin/bash
 
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 TEST_DIR="test-images"
 OUTPUT_LOG="results_summary_$(date).txt"
 

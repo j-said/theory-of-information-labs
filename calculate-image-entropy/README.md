@@ -10,6 +10,7 @@ Console utility in Rust for analyzing luma image entropy and data compression us
 * Generating Huffman codes and calculating encoding efficiency.
 
 Run the program by passing the path to an image:
+
 ```bash
 cargo run -- relative/path/to/image.png [block_size]
 ```

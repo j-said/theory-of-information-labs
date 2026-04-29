@@ -12,6 +12,7 @@ Console utility in Rust for analyzing the effects of sampling and bit-depth redu
 ## Quick Start
 
 Pass the path to a grayscale or color image (will be converted to luma) via CLI:
+
 ```bash
 cargo run -- tests-images/linear-gradient.png
 ```
@@ -19,6 +20,7 @@ cargo run -- tests-images/linear-gradient.png
 ## Automation
 
 Run the provided shell script to batch process all images in the test directory and generate a summary report:
+
 ```bash
 chmod +x run_lab_tests.sh
 ./run_lab_tests.sh

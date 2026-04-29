@@ -274,3 +274,176 @@ impl ReedSolomon {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn gf_add_is_xor() {
+        let gf = GF::new();
+        assert_eq!(gf.add(0xAB, 0xCD), 0xAB ^ 0xCD);
+        assert_eq!(gf.add(0xFF, 0xFF), 0x00); // a + a = 0 in GF(2)
+        assert_eq!(gf.add(0x00, 0x42), 0x42);
+    }
+
+    #[test]
+    fn gf_mul_commutativity() {
+        let gf = GF::new();
+        for a in [0x00u8, 0x01, 0x02, 0x10, 0x7F, 0xFF] {
+            for b in [0x00u8, 0x01, 0x03, 0x20, 0x80, 0xFE] {
+                assert_eq!(
+                    gf.mul(a, b),
+                    gf.mul(b, a),
+                    "mul not commutative for {a:#x}, {b:#x}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gf_mul_identity_and_zero() {
+        let gf = GF::new();
+        for a in 0u8..=255 {
+            assert_eq!(gf.mul(a, 1), a, "mul by 1 should be identity for {a:#x}");
+            assert_eq!(gf.mul(a, 0), 0, "mul by 0 should be 0 for {a:#x}");
+        }
+    }
+
+    #[test]
+    fn gf_inverse_roundtrip() {
+        let gf = GF::new();
+        for a in 1u8..=255 {
+            assert_eq!(
+                gf.mul(a, gf.inverse(a)),
+                1,
+                "a * inv(a) should be 1 for {a:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn gf_div_roundtrip() {
+        let gf = GF::new();
+        for a in [0x01u8, 0x02, 0x10, 0x7F, 0xFF] {
+            for b in [0x01u8, 0x03, 0x20, 0x80, 0xFE] {
+                let q = gf.div(a, b);
+                assert_eq!(
+                    gf.mul(q, b),
+                    a,
+                    "div/mul roundtrip failed for {a:#x}/{b:#x}"
+                );
+            }
+        }
+    }
+
+    fn roundtrip(msg: &[u8], ecc_len: usize) {
+        let rs = ReedSolomon::new(ecc_len);
+        let codeword = rs.encode(msg, false);
+        assert_eq!(codeword.len(), msg.len() + ecc_len);
+
+        let mut received = codeword.clone();
+        rs.correct_errors(&mut received, false)
+            .expect("clean codeword should need no correction");
+        assert_eq!(&received[..msg.len()], msg, "decoded message mismatch");
+    }
+
+    #[test]
+    fn encode_decode_roundtrip_short() {
+        roundtrip(b"Hello", 6);
+    }
+
+    #[test]
+    fn encode_decode_roundtrip_long() {
+        roundtrip(b"Reed-Solomon error correction", 10);
+    }
+
+    #[test]
+    fn encode_decode_roundtrip_binary_data() {
+        let msg: Vec<u8> = (0u8..=50).collect();
+        roundtrip(&msg, 8);
+    }
+
+    #[test]
+    fn encode_decode_roundtrip_single_byte() {
+        roundtrip(&[0xAB], 4);
+    }
+
+    #[test]
+    fn syndromes_zero_for_valid_codeword() {
+        let rs = ReedSolomon::new(6);
+        let codeword = rs.encode(b"TestData", false);
+        let syndromes = rs.calc_syndromes(&codeword);
+        assert!(
+            syndromes.iter().all(|&s| s == 0),
+            "syndromes must be zero for a valid codeword"
+        );
+    }
+
+    #[test]
+    fn syndromes_nonzero_after_corruption() {
+        let rs = ReedSolomon::new(6);
+        let mut codeword = rs.encode(b"TestData", false);
+        codeword[0] ^= 0xFF;
+        let syndromes = rs.calc_syndromes(&codeword);
+        assert!(
+            !syndromes.iter().all(|&s| s == 0),
+            "syndromes must be non-zero after corruption"
+        );
+    }
+
+    fn correct_and_check(msg: &[u8], ecc_len: usize, error_positions: &[(usize, u8)]) {
+        let rs = ReedSolomon::new(ecc_len);
+        let mut codeword = rs.encode(msg, false);
+        for &(pos, mask) in error_positions {
+            codeword[pos] ^= mask;
+        }
+        rs.correct_errors(&mut codeword, false)
+            .unwrap_or_else(|e| panic!("correction failed with {error_positions:?}: {e}"));
+        assert_eq!(
+            &codeword[..msg.len()],
+            msg,
+            "message not restored after correcting {error_positions:?}"
+        );
+    }
+
+    #[test]
+    fn correct_one_error_in_data() {
+        correct_and_check(b"Hello", 6, &[(0, 0xFF)]);
+    }
+
+    #[test]
+    fn correct_one_error_in_ecc() {
+        let msg = b"Hello";
+        correct_and_check(msg, 6, &[(msg.len() + 1, 0xAB)]);
+    }
+
+    #[test]
+    fn correct_max_errors_ecc6() {
+        // ecc_len = 6 can correct up to 3 errors
+        correct_and_check(b"Hello!!", 6, &[(0, 0x11), (2, 0xAA), (4, 0x55)]);
+    }
+
+    #[test]
+    fn correct_max_errors_ecc8() {
+        // ecc_len = 8 can correct up to 4 errors
+        correct_and_check(
+            b"ReedSolomon",
+            8,
+            &[(0, 0x01), (2, 0x02), (5, 0x04), (8, 0x08)],
+        );
+    }
+
+    #[test]
+    fn too_many_errors_returns_err() {
+        let rs = ReedSolomon::new(6); // capacity = 3 errors
+        let mut codeword = rs.encode(b"Hello", false);
+        codeword[0] ^= 0x01;
+        codeword[1] ^= 0x02;
+        codeword[2] ^= 0x04;
+        codeword[3] ^= 0x08;
+        assert!(
+            rs.correct_errors(&mut codeword, false).is_err(),
+            "should fail with too many errors"
+        );
+    }
+}
